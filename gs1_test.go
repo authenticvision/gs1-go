@@ -2,7 +2,7 @@ package gs1
 
 import "testing"
 
-func Test_IsGTIN(t *testing.T) {
+func TestIsGTIN(t *testing.T) {
 	// sources:
 	// - known-good customer GTINs
 	// - https://www.gtin.info/
@@ -31,7 +31,7 @@ func Test_IsGTIN(t *testing.T) {
 	}
 	for _, tt := range testsPositive {
 		if !IsGTIN(tt) {
-			t.Errorf("isGTIN(%q) = false, want true", tt)
+			t.Errorf("IsGTIN(%q) = false, want true", tt)
 		}
 	}
 
@@ -49,7 +49,7 @@ func Test_IsGTIN(t *testing.T) {
 	}
 	for _, tt := range testsNegative {
 		if IsGTIN(tt) {
-			t.Errorf("isGTIN(%q) = true, want false", tt)
+			t.Errorf("IsGTIN(%q) = true, want false", tt)
 		}
 	}
 }

@@ -16,8 +16,8 @@ func IsSSCC(s string) bool {
 }
 
 func hasValidCheckDigit(s string) bool {
-	chk := CheckDigit(s)
-	return chk != 0 && chk == s[len(s)-1]
+	n := len(s) - 1
+	return CheckDigit(s[:n]) == s[n]
 }
 
 // CheckDigit returns the ASCII check digit for s, or zero if s is not numeric.
@@ -25,7 +25,7 @@ func CheckDigit(s string) uint8 {
 	// derived from: https://www.gs1.org/services/how-calculate-check-digit-manually
 	mul := 3
 	sum := 0
-	for i := len(s) - 2; i >= 0; i-- {
+	for i := len(s) - 1; i >= 0; i-- {
 		c := s[i]
 		if c < '0' || c > '9' {
 			return 0

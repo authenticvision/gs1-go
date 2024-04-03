@@ -53,3 +53,23 @@ func TestIsGTIN(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckDigit(t *testing.T) {
+	type args struct {
+		s string
+	}
+	tests := []struct {
+		input string
+		check uint8
+	}{
+		{"01234567890", '5'},
+		{"1123456712345", '2'},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			if got := CheckDigit(tt.input); got != tt.check {
+				t.Errorf("CheckDigit(%q) = %c, want %c", tt.input, got, tt.check)
+			}
+		})
+	}
+}

@@ -11,7 +11,7 @@ import (
 var ErrNoGS1 = errors.New("not a GS1 code")
 var ErrUnknownAI = errors.New("unknown AI")
 var ErrDuplicateAI = errors.New("duplicate AI")
-var ErrShortValue = errors.New("fixed-length value too short")
+var ErrInvalidLength = errors.New("fixed-length value too short or long")
 
 // AIs maps an AI to its value. Multiple values are not supported
 type AIs map[string]string
@@ -99,7 +99,7 @@ func (r *elementReader) readAI() (AIDesc, error) {
 }
 
 // readValue reads the value of an AI of either the given length, or up to the
-// next FNC1 or EOF. Returns ErrShortValue if a fixed length is given but EOF
+// next FNC1 or EOF. Returns ErrInvalidLength if a fixed length is given but EOF
 // or an FNC1 are reached before.
 func (r *elementReader) readValue(length int) (string, error) {
 	end := min(r.pos+length, len(r.input))
@@ -112,13 +112,58 @@ func (r *elementReader) readValue(length int) (string, error) {
 	}
 	ret := r.input[start:r.pos]
 	if length != 0 && len(ret) != length {
-		return "", fmt.Errorf("%w: %q", ErrShortValue, ret)
+		return "", fmt.Errorf("%w: %q", ErrInvalidLength, ret)
 	}
 	return ret, nil
 }
 
 func ParseDigitalLink(s string) (AIs, error) {
-	return nil, errors.New("not implemented")
+	u, err := url.Parse(s)
+	if err != nil {
+		return nil, err
+	}
+	path := strings.Split(strings.Trim(u.Path, "/"), "/")
+	collected := map[AIDesc][]string{}
+	for len(path) > 0 {
+		pathAI := path[0]
+		path = path[1:]
+		ai, ok := ApplicationIdentifiers[pathAI]
+		if !ok && len(collected) == 0 {
+			// not a known AI or path prefix, skip
+			// TODO: potentially apply heuristic to return an error if el is numeric
+			continue
+		} else if !ok {
+			return nil, fmt.Errorf("%w: %q", ErrUnknownAI, pathAI)
+		} else if len(path) == 0 {
+			return nil, fmt.Errorf("AI without value: %q", ai.AI)
+		}
+		collected[ai] = append(collected[ai], path[0])
+		path = path[1:]
+	}
+	if len(collected) == 0 {
+		return nil, ErrNoGS1
+	}
+
+	for ai, values := range u.Query() {
+		ai, ok := ApplicationIdentifiers[ai]
+		if !ok {
+			// not a known AI or other query parameter, skip
+			// TODO: potentially apply heuristic to return an error if ai is numeric
+			continue
+		}
+		collected[ai] = append(collected[ai], values...)
+	}
+	ret := AIs{}
+	for ai, values := range collected {
+		if len(values) > 1 {
+			return nil, fmt.Errorf("%w: %q", ErrDuplicateAI, ai.AI)
+		}
+		if ai.Length != 0 && len(values[0]) != ai.Length {
+			return nil, fmt.Errorf("AI %q: %w: %q", ai.AI, ErrInvalidLength, values[0])
+		}
+		ret[ai.AI] = values[0]
+	}
+	return ret, nil
 }
 
 func detect(s string) CodeType {

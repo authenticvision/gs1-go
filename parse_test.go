@@ -16,7 +16,7 @@ func TestParse_ElementSyntax(t *testing.T) {
 		wantErrParse string // same as wantErr if not set
 	}{
 		{name: "plain GTIN", input: "\x1d0112345678901234", want: AIs{"01": "12345678901234"}},
-		{name: "truncated GTIN", input: "\x1d01123456789", wantErr: ErrShortValue.Error()},
+		{name: "truncated GTIN", input: "\x1d01123456789", wantErr: ErrInvalidLength.Error()},
 		{name: "duplicate AI", input: "\x1d01123456789012340112345678901234", wantErr: ErrDuplicateAI.Error()},
 		{name: "missing FNC1 indicator", input: "0112345678901234", wantErr: ErrNoGS1.Error()},
 		{name: "variable length at the end", input: "\x1d0112345678901234211234", want: AIs{"01": "12345678901234", "21": "1234"}},
@@ -35,6 +35,53 @@ func TestParse_ElementSyntax(t *testing.T) {
 			if tt.wantErr != "" {
 				a.ErrorContains(err, tt.wantErr)
 				a.ErrorContains(err2, coalesce(tt.wantErrParse, tt.wantErr))
+				a.Nil(got)
+				a.Nil(got2)
+			} else {
+				a.NoError(err)
+				a.Equal(tt.want, got)
+				a.NoError(err2)
+				a.Equal(got, got2)
+			}
+		})
+	}
+}
+
+func TestParse_DigitalLink(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		want         AIs
+		wantErr      string
+		wantErrParse string // same as wantErr if not set
+	}{
+		{name: "plain GTIN", input: "https://example.org/01/12345678901234", want: AIs{"01": "12345678901234"}},
+		{name: "truncated GTIN", input: "https://example.org/01/123456789", wantErr: ErrInvalidLength.Error()},
+		{name: "duplicate AI", input: "https://example.org/01/12345678901234/01/12345678901234", wantErr: ErrDuplicateAI.Error()},
+		{name: "trailing slash", input: "https://example.org/01/12345678901234/", want: AIs{"01": "12345678901234"}},
+		{name: "path prefix", input: "https://example.org/some-non-gs1-fields/prefix/01/12345678901234/", want: AIs{"01": "12345678901234"}},
+		{name: "non-primary AI", input: "https://example.org/01/12345678901234?21=1234", want: AIs{"01": "12345678901234", "21": "1234"}},
+		{name: "tolerate non-primary AI in path", input: "https://example.org/01/12345678901234/21/1234", want: AIs{"01": "12345678901234", "21": "1234"}},
+		{name: "multiple non-primary AIs", input: "https://example.org/01/12345678901234?21=1234&11=260612", want: AIs{"01": "12345678901234", "21": "1234", "11": "260612"}},
+		{name: "tolerate primary AIs in query", input: "https://example.org/01/12345678901234/21/1234?414=1234567890123&11=260612", want: AIs{"01": "12345678901234", "21": "1234", "11": "260612", "414": "1234567890123"}},
+		{name: "no primary AIs", input: "https://example.org/?21=1234&11=260612", wantErr: ErrNoGS1.Error()},
+		{name: "non-GS1 query parameters", input: "https://example.org/01/12345678901234?test=1&21=1234&11=260612&false", want: AIs{"01": "12345678901234", "21": "1234", "11": "260612"}},
+		{name: "double slash between AIs", input: "https://example.org/01/12345678901234//21/1234", wantErr: ErrUnknownAI.Error()},
+		{name: "missing value", input: "https://example.org/01/", wantErr: "AI without value"},
+		{name: "empty string", input: "", wantErr: ErrNoGS1.Error()},
+		{name: "no GS1", input: "https://example.org/test", wantErr: ErrNoGS1.Error()},
+		{name: "unknown AI", input: "https://example.org/01/12345678901234/18/1234", wantErr: ErrUnknownAI.Error()},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := assert.New(t)
+			got, err := ParseDigitalLink(tt.input)
+			got2, err2 := Parse(tt.input)
+			if tt.wantErr != "" {
+				a.ErrorContains(err, tt.wantErr)
+				a.ErrorContains(err2, coalesce(tt.wantErrParse, tt.wantErr))
+				a.Nil(got)
+				a.Nil(got2)
 			} else {
 				a.NoError(err)
 				a.Equal(tt.want, got)

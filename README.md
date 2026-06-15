@@ -3,7 +3,7 @@
 Authentic Vision integrates with various industry standard code systems.
 This library is used by our Go systems that process GS1 container text.
 
-This library does not have any external dependencies.
+This library does not have any non-testing external dependencies.
 
 ## Usage
 
@@ -28,4 +28,11 @@ if chk := gs1.CheckDigit(input); chk != 0 {
 } else {
 	// input contains non-numeric characters
 }
+```
+
+Parse a GS1 QR or DM code:
+
+```
+ais, err := gs1.Parse(input)
+println(ais["01"]) // GTIN
 ```
